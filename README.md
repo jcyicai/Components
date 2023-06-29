@@ -6,6 +6,11 @@
 
 如果只是使用表格的基础功能，那么可以继续使用 `element table` 组件；如果是复杂表格，推荐使用 `vxe-table` 等第三方组件库！
 
+## 说明
+1. 目前 VxeListTable 和 VxeTable 组件是基于 vxe-table 组件二次封装，VxeListTable 支持 操作栏、分页、行展开详情、多选、表头分组、表格列显示隐藏、列宽度调整、列固定、单元格背景色调整，VxeTable 仅支持基础表格数据展示及表头分组。
+2. 可以查看 vxe-table 官方文档，建议后期使用 vxe-grid 高级表格组件来进行重新封装。（待优化）
+3. 各组件仅供参考，如有问题，欢迎提 issues。
+
 ## element
 1. [BaseDialog 基础Dialog](https://github.com/chenyicai622/Components/tree/main/element/BaseDialog)
 2. [BaseForm 基础Form（弃用）](https://github.com/chenyicai622/Components/tree/main/element/BaseForm)
@@ -16,6 +21,11 @@
 7. [BaseTableSearch 查询表格](https://github.com/chenyicai622/Components/tree/main/element/BaseTableSearch)
 8. [BaseTableWork 业务表格](https://github.com/chenyicai622/Components/tree/main/element/BaseTableWork)
 
+## vxe
+1. [VxeListTable 列表表格](https://github.com/chenyicai622/Components/tree/main/vxe/VxeListTable)
+2. [VxeTable 基础表格](https://github.com/chenyicai622/Components/tree/main/vxe/VxeTable)
+
 ## examples
 1. [editPageByElement 编辑页 Demo](https://github.com/chenyicai622/Components/tree/main/examples/editPageByElement)
-2. [searchPageByElement 搜索页 Demo](https://github.com/chenyicai622/Components/tree/main/examples/searchPageByElement)
+2. [listPageByVxe 列表页 Demo](https://github.com/chenyicai622/Components/tree/main/examples/listPageByVxe)
+3. [searchPageByElement 搜索页 Demo](https://github.com/chenyicai622/Components/tree/main/examples/searchPageByElement)
