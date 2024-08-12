@@ -48,7 +48,7 @@
                 >
                   <template v-if="field.type === 'select'">
                     <el-option
-                      v-for="option in field.options"
+                      v-for="option in getOptions(field.options)"
                       :key="getOptionProp(option, field.optionProps, 'id')"
                       :label="getOptionProp(option, field.optionProps, 'name')"
                       :value="getOptionProp(option, field.optionProps, 'id')"
@@ -161,7 +161,7 @@
       clearValidate(field) {
         this.$refs['form'].clearValidate(field)
       },
-      // 重置
+      // 重置 慎重使用 必须每个都设置 prop 属性，否则执行完方法，手动来进行重置数据
       resetFields() {
         this.$refs['form'].resetFields()
       },
@@ -202,6 +202,9 @@
           return option[optionProps[defaultProp]]
         }
         return option[defaultProp]
+      },
+      getOptions(options) {
+        return typeof options === 'function' ? options() : options
       },
       // 获取组件属性
       getComponentAttrs(field) {

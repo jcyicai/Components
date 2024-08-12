@@ -53,11 +53,6 @@
   import Focus from 'element-ui/src/mixins/focus'
   import RepeatClick from 'element-ui/src/directives/repeat-click'
 
-  /**
-   * 说明：原 el-input-number 组件默认值为 0
-   * 更新：修改后默认值为 null
-   */
-
   export default {
     name: 'BaseInputNumber',
     components: {
