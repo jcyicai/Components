@@ -10,54 +10,64 @@
     >
       <el-row :gutter="15">
         <template v-for="(field, index) in finallyFields">
-          <el-col v-if="showField(index)" :key="field.prop" :span="getColSpan(field, index)">
-            <!-- 表单 slot -->
-            <template v-if="field.formItemSlot">
-              <slot :name="field.prop" :field="field" :index="index"></slot>
-            </template>
-            <el-form-item v-else :label="field.label" :prop="field.prop">
-              <!-- 组件 slot -->
-              <template v-if="field.slot">
+          <template v-if="field.itemSlot">
+            <slot :name="field.prop" :field="field" :index="index"></slot>
+          </template>
+          <template v-else>
+            <el-col v-if="showField(index)" :key="field.prop" v-bind="getFieldColAttrs(field, index)">
+              <!-- 表单 slot -->
+              <template v-if="field.formItemSlot">
                 <slot :name="field.prop" :field="field" :index="index"></slot>
               </template>
-              <template v-else-if="field.type === 'customSelect' || field.component === 'customSelect'">
-                <win-input-button
-                  v-model="finallyFormData[field.prop]"
-                  :type="field.attrs.type"
-                  simplfy
-                  v-bind="getComponentAttrs(field)"
-                  :disabled="getFieldDisabled(field, index)"
-                  v-on="getComponentListeners(field, index)"
-                />
-              </template>
-              <template v-else-if="field.type === 'input-number' || field.component === 'input-number'">
-                <base-input-number
-                  v-model="finallyFormData[field.prop]"
-                  v-bind="getComponentAttrs(field)"
-                  :disabled="getFieldDisabled(field, index)"
-                  v-on="getComponentListeners(field, index)"
-                ></base-input-number>
-              </template>
-              <template v-else>
-                <component
-                  :is="getComponentType(field)"
-                  v-model="finallyFormData[field.prop]"
-                  v-bind="getComponentAttrs(field)"
-                  :disabled="getFieldDisabled(field, index)"
-                  v-on="getComponentListeners(field, index)"
-                >
-                  <template v-if="field.type === 'select'">
-                    <el-option
-                      v-for="option in getOptions(field.options)"
-                      :key="getOptionProp(option, field.optionProps, 'id')"
-                      :label="getOptionProp(option, field.optionProps, 'name')"
-                      :value="getOptionProp(option, field.optionProps, 'id')"
+              <el-form-item v-else :label="field.label" :prop="field.prop">
+                <!-- 组件 slot -->
+                <template v-if="field.slot">
+                  <slot :name="field.prop" :field="field" :index="index"></slot>
+                </template>
+                <template v-else-if="!isDetail">
+                  <template v-if="field.type === 'customSelect' || field.component === 'customSelect'">
+                    <win-input-button
+                      v-model="finallyFormData[field.prop]"
+                      :type="field.attrs.type"
+                      simplfy
+                      v-bind="getComponentAttrs(field)"
+                      :disabled="getFieldDisabled(field, index)"
+                      v-on="getComponentListeners(field, index)"
                     />
                   </template>
-                </component>
-              </template>
-            </el-form-item>
-          </el-col>
+                  <template v-else-if="field.type === 'input-number' || field.component === 'input-number'">
+                    <input-number
+                      v-model="finallyFormData[field.prop]"
+                      v-bind="getComponentAttrs(field)"
+                      :disabled="getFieldDisabled(field, index)"
+                      v-on="getComponentListeners(field, index)"
+                    ></input-number>
+                  </template>
+                  <template v-else>
+                    <component
+                      :is="getComponentType(field)"
+                      v-model="finallyFormData[field.prop]"
+                      v-bind="getComponentAttrs(field)"
+                      :disabled="getFieldDisabled(field, index)"
+                      v-on="getComponentListeners(field, index)"
+                    >
+                      <template v-if="field.type === 'select'">
+                        <el-option
+                          v-for="option in getOptions(field.options)"
+                          :key="getOptionProp(option, field.optionProps, 'id')"
+                          :label="getOptionProp(option, field.optionProps, 'name')"
+                          :value="getOptionProp(option, field.optionProps, 'id')"
+                        />
+                      </template>
+                    </component>
+                  </template>
+                </template>
+                <template v-else>
+                  <component :is="getFieldContent(field, index)"></component>
+                </template>
+              </el-form-item>
+            </el-col>
+          </template>
         </template>
         <el-col v-if="isSearch" :span="getSearchColSpan()" class="form-actions-col">
           <div class="form-actions">
@@ -106,6 +116,10 @@
         default: () => {},
       },
       loading: {
+        type: Boolean,
+        default: false,
+      },
+      isDetail: {
         type: Boolean,
         default: false,
       },
@@ -173,6 +187,16 @@
 
         return true
       },
+      getFieldColAttrs(field, index) {
+        // 是否响应式
+        const baseAttrs = field.isRwd ? {} : { span: this.getColSpan(field, index) }
+
+        if (field.colAttrs && Object.keys(field.colAttrs).length) {
+          return { ...baseAttrs, ...field.colAttrs }
+        }
+
+        return baseAttrs
+      },
       // 获取 col span
       getColSpan(field, index) {
         if (this.isSearch && index < 3) {
@@ -226,12 +250,54 @@
         }
         return listeners
       },
+      // 获取组件内容
+      getFieldContent(field, index) {
+        if (field.content && this.isFunction(field.content)) {
+          const content = field.content(field, index)
+          return this.createComponent(content)
+        }
+        return this.createComponent(this.finallyFormData[field.prop])
+      },
+      createComponent(content) {
+        if (typeof content === 'string') {
+          if (/<[a-z][\s\S]*>/i.test(content)) {
+            // 包含 HTML 标签
+            return {
+              render: (h) => h('div', { domProps: { innerHTML: content } }),
+            }
+          } else {
+            return {
+              render: (h) => h('span', content),
+            }
+          }
+        } else if (typeof content === 'object' && content.render) {
+          // 如果已经是一个组件对象，直接返回
+          return content
+        } else {
+          return {
+            render(h) {
+              return h('span', content)
+            },
+          }
+        }
+
+        /* content: '测试',
+        content: (field, index) => ({
+              render(h) {
+                return h('div', [h('span', '段落'), h('button', '按钮')])
+              },
+            }),
+        content: (field, index) => `<span>测试</span>` */
+      },
       // 是否禁用
       getFieldDisabled(field, index) {
         if (typeof field.attrs.disabled === 'function') {
           return field.attrs.disabled({ index, ...field })
         }
         return field.attrs.disabled
+      },
+      isFunction(value) {
+        return typeof value === 'function'
       },
       processRules(rules, field) {
         return rules.map((rule) => {

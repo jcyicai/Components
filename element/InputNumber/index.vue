@@ -54,7 +54,7 @@
   import RepeatClick from 'element-ui/src/directives/repeat-click'
 
   export default {
-    name: 'BaseInputNumber',
+    name: 'InputNumber',
     components: {
       ElInput,
     },
