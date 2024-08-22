@@ -1,88 +1,191 @@
 <template>
-  <div class="base-form-container">
-    <el-form
-      ref="form"
-      v-loading="loading"
-      :validate-on-rule-change="false"
-      :model="finallyFormData"
-      :rules="mergedRules"
-      :label-width="labelWidth"
-    >
-      <el-row :gutter="15">
-        <template v-for="(field, index) in finallyFields">
-          <template v-if="field.itemSlot">
-            <slot :name="field.prop" :field="field" :index="index"></slot>
-          </template>
-          <template v-else>
-            <el-col v-if="showField(index)" :key="field.prop" v-bind="getFieldColAttrs(field, index)">
-              <!-- 表单 slot -->
-              <template v-if="field.formItemSlot">
-                <slot :name="field.prop" :field="field" :index="index"></slot>
-              </template>
-              <el-form-item v-else :label="field.label" :prop="field.prop">
-                <!-- 组件 slot -->
-                <template v-if="field.slot">
-                  <slot :name="field.prop" :field="field" :index="index"></slot>
-                </template>
-                <template v-else-if="!isDetail">
-                  <template v-if="field.type === 'customSelect' || field.component === 'customSelect'">
-                    <win-input-button
-                      v-model="finallyFormData[field.prop]"
-                      :type="field.attrs.type"
-                      simplfy
-                      v-bind="getComponentAttrs(field)"
-                      :disabled="getFieldDisabled(field, index)"
-                      v-on="getComponentListeners(field, index)"
-                    />
-                  </template>
-                  <template v-else-if="field.type === 'input-number' || field.component === 'input-number'">
-                    <input-number
-                      v-model="finallyFormData[field.prop]"
-                      v-bind="getComponentAttrs(field)"
-                      :disabled="getFieldDisabled(field, index)"
-                      v-on="getComponentListeners(field, index)"
-                    ></input-number>
-                  </template>
-                  <template v-else>
-                    <component
-                      :is="getComponentType(field)"
-                      v-model="finallyFormData[field.prop]"
-                      v-bind="getComponentAttrs(field)"
-                      :disabled="getFieldDisabled(field, index)"
-                      v-on="getComponentListeners(field, index)"
-                    >
-                      <template v-if="field.type === 'select'">
-                        <el-option
-                          v-for="option in getOptions(field.options)"
-                          :key="getOptionProp(option, field.optionProps, 'id')"
-                          :label="getOptionProp(option, field.optionProps, 'name')"
-                          :value="getOptionProp(option, field.optionProps, 'id')"
-                        />
-                      </template>
-                    </component>
-                  </template>
-                </template>
-                <template v-else>
-                  <component :is="getFieldContent(field, index)"></component>
-                </template>
-              </el-form-item>
-            </el-col>
-          </template>
-        </template>
-        <el-col v-if="isSearch" :span="getSearchColSpan()" class="form-actions-col">
-          <div class="form-actions">
-            <el-button icon="el-icon-search" native-type="submit" size="mini" type="primary" @click="handleQuery">
-              查询
-            </el-button>
-            <el-button icon="el-icon-refresh-left" native-type="submit" type="default" size="mini" @click="handleReset">
-              重置
-            </el-button>
-            <el-button v-if="fields.length > 3" type="text" @click="toggleExpand">
-              {{ isExpanded ? '收起' : '展开' }}
-              <i :class="isExpanded ? 'el-icon-arrow-up' : 'el-icon-arrow-down'"></i>
-            </el-button>
+  <div class="base-form">
+    <!-- 是否显示 header -->
+    <el-page-header v-if="isHeader" class="page-header" @back="goBack">
+      <template #content>
+        <div class="header-content">
+          <div class="header-title">{{ headerConfig.title }}</div>
+          <div class="header-btn">
+            <!-- 自定义 header 右侧部分内容-->
+            <slot name="header-operate-right"></slot>
           </div>
-        </el-col>
+        </div>
+      </template>
+    </el-page-header>
+    <el-form
+      ref="baseForm"
+      :model="finallyFormData"
+      :label-width="labelWidth"
+      :label-position="labelPosition"
+      :inline="inline"
+    >
+      <el-row :gutter="15" class="form-wrapper">
+        <template v-for="(item, index) in config">
+          <!-- handleShow 方法处理表单item 是否显示  handleCalcColSpan 方法处理不同表单类型显示span值 -->
+          <el-col
+            v-if="handleShow(item, index)"
+            :key="item.prop"
+            :span="handleCalcColSpan(item)"
+          >
+            <!-- 自定义列 -->
+            <template v-if="item.slot">
+              <slot :name="item.prop" :index="index" :config="item" />
+            </template>
+            <el-form-item
+              v-else
+              :label="item.label"
+              :prop="item.prop"
+              :rules="rules && rules[item.prop] ? rules[item.prop] : null"
+            >
+              <template v-if="pageType !== PageTypeEnums.detail">
+                <!-- 文本框 -->
+                <el-input
+                  v-if="item.type === 'input'"
+                  v-model="finallyFormData[item.prop]"
+                  :clearable="item.clearable || true"
+                  :placeholder="item.placeholder || '请输入'"
+                  :disabled="item.disabled"
+                  @change="
+                    val => {
+                      typeof item.change === 'function' &&
+                        item.change(val, item.prop)
+                    }
+                  "
+                ></el-input>
+                <!-- 数字框 -->
+                <el-input-number
+                  v-if="item.type === 'number'"
+                  v-model="finallyFormData[item.prop]"
+                  :placeholder="item.placeholder || '请输入'"
+                  :controls="false"
+                  style="width: 100%"
+                  class="num-item"
+                  :precision="item.precision || 0"
+                  @change="
+                    val => {
+                      typeof item.change === 'function' &&
+                        item.change(val, item.prop)
+                    }
+                  "
+                />
+                <!-- 文本框 -->
+                <el-input
+                  v-if="item.type === 'textarea'"
+                  v-model="finallyFormData[item.prop]"
+                  type="textarea"
+                  :rows="item.rows || 2"
+                  :clearable="item.clearable || true"
+                  :placeholder="item.placeholder || '请输入'"
+                  :disabled="item.disabled"
+                  @change="
+                    val => {
+                      typeof item.change === 'function' &&
+                        item.change(val, item.prop)
+                    }
+                  "
+                ></el-input>
+                <!-- 单日期框 -->
+                <el-date-picker
+                  v-if="item.type === 'date'"
+                  v-model="finallyFormData[item.prop]"
+                  style="width: 100%"
+                  type="date"
+                  :placeholder="item.placeholder || '请选择'"
+                  :clearable="item.clearable || true"
+                  :disabled="item.disabled"
+                ></el-date-picker>
+                <!-- 多日期框 -->
+                <el-date-picker
+                  v-if="item.type === 'dateRange'"
+                  v-model="finallyFormData[item.prop]"
+                  style="width: 100%"
+                  type="daterange"
+                  value-format="yyyy-MM-dd"
+                  range-separator="~"
+                  start-placeholder="开始日期"
+                  end-placeholder="结束日期"
+                  :clearable="item.clearable || true"
+                  :disabled="item.disabled"
+                ></el-date-picker>
+                <!-- 选择框 -->
+                <el-select
+                  v-if="item.type === 'select'"
+                  v-model="finallyFormData[item.prop]"
+                  style="width: 100%"
+                  :clearable="item.clearable || true"
+                  :placeholder="item.placeholder || '请输入'"
+                  :multiple="item.multiple"
+                  @change="
+                    val => {
+                      typeof item.change === 'function' &&
+                        item.change(val, item.prop)
+                    }
+                  "
+                >
+                  <!-- props 可根据自身数据 指定参数值 { id: 'value', name: 'text'} -->
+                  <el-option
+                    v-for="subItem in item.options"
+                    :key="
+                      item.props && Object.keys(item.props).length
+                        ? subItem[item.props.id]
+                        : subItem.id
+                    "
+                    :label="
+                      item.props && Object.keys(item.props).length
+                        ? subItem[item.props.name]
+                        : subItem.name
+                    "
+                    :value="
+                      item.props && Object.keys(item.props).length
+                        ? subItem[item.props.id]
+                        : subItem.id
+                    "
+                  ></el-option>
+                </el-select>
+              </template>
+              <template v-else>
+                <!-- 格式化内容 -->
+                <span v-if="typeof item.format === 'function'">
+                  {{ item.format(finallyFormData[item.prop]) }}
+                </span>
+                <span v-else>{{ finallyFormData[item.prop] }}</span>
+              </template>
+            </el-form-item>
+          </el-col>
+        </template>
+        <!-- 是否显示查询内容 -->
+        <div v-if="isSearch" class="search-btn">
+          <el-button
+            icon="el-icon-search"
+            size="mini"
+            type="primary"
+            @click="handleSearch"
+            >查询</el-button
+          >
+          <el-button
+            icon="el-icon-refresh-left"
+            type="default"
+            size="mini"
+            @click="handleResetSearch"
+            >重置</el-button
+          >
+          <el-button
+            v-if="!isExpand"
+            type="text"
+            @click="handleToggleSearchForm"
+          >
+            展开
+            <i class="el-icon-arrow-down el-icon--left"></i>
+          </el-button>
+          <el-button
+            v-else-if="isExpand"
+            type="text"
+            @click="handleToggleSearchForm"
+          >
+            收起
+            <i class="el-icon-arrow-up el-icon--left"></i>
+          </el-button>
+        </div>
       </el-row>
       <slot></slot>
     </el-form>
@@ -90,240 +193,154 @@
 </template>
 
 <script>
-  export default {
-    name: 'BaseForm',
-    props: {
-      value: {
-        type: Object,
-        default: () => {},
-        required: true,
-      },
-      fields: {
-        type: Array,
-        default: () => [],
-        required: true,
-      },
-      isSearch: {
-        type: Boolean,
-        default: false,
-      },
-      labelWidth: {
-        type: String,
-        default: '100px',
-      },
-      rules: {
-        type: Object,
-        default: () => {},
-      },
-      loading: {
-        type: Boolean,
-        default: false,
-      },
-      isDetail: {
-        type: Boolean,
-        default: false,
-      },
+// 表单类型
+const formTypes = ['textarea']
+
+// 页面类型
+const PageTypeEnums = {
+  add: 1,
+  edit: 2,
+  detail: 3,
+}
+
+/* 直接使用 BaseFormSearch BaseFormWork组件即可，当前组件可弃用！！！ */
+export default {
+  name: 'BaseForm',
+  props: {
+    // 是否显示头部
+    isHeader: {
+      type: Boolean,
+      default: false,
     },
-    data() {
-      return {
-        isExpanded: false,
+    // 头部配置 { backRouterName：'list', title: '新增/编辑'}
+    headerConfig: {
+      type: Object,
+      default: () => {},
+    },
+    // label 位置  left right top
+    labelPosition: {
+      type: String,
+      default: 'left',
+    },
+    // lable 宽度
+    labelWidth: {
+      type: String,
+      default: '100px',
+    },
+    // 是否行内表单模式
+    inline: {
+      type: Boolean,
+      default: false,
+    },
+    // 表单 数据
+    data: {
+      type: Object,
+      default: () => {},
+      required: true
+    },
+    // 验证规则
+    rules: {
+      type: Object,
+      default: () => {},
+    },
+    // 表单配置
+    config: {
+      type: Array,
+      default: () => [],
+      required: true
+    },
+    // 是否需要查询
+    isSearch: {
+      type: Boolean,
+      default: false,
+    },
+    // 页面类型
+    pageType: {
+      type: Number,
+      default: 1, // 新增
+    },
+  },
+  data() {
+    return {
+      PageTypeEnums,
+      isExpand: false,
+    }
+  },
+  computed: {
+    finallyFormData() {
+      return this.data
+    },
+  },
+  created() {},
+  mounted() {},
+  methods: {
+    // 计算一列长度
+    handleCalcColSpan(item) {
+      let span = 6
+      if (item.span) {
+        span = item.span
+      } else if (formTypes.includes(item.type)) {
+        // 指定某些类型
+        span = 24
+      }
+      return span
+    },
+    // 查询
+    handleSearch() {
+      this.$emit('search')
+    },
+    // 重置
+    handleResetSearch() {
+      this.$emit('reset')
+    },
+    // 展开 收起
+    handleToggleSearchForm() {
+      this.isExpand = !this.isExpand
+    },
+    // 是否显示列
+    handleShow(item, index) {
+      const isShowItem = item.hidden || false
+      if (!this.isSearch) {
+        return true
+      } else if (item.flag !== undefined && item.flag !== null) {
+        // 逻辑判断
+        return item.flag
+      } else {
+        // 判断是否设置隐藏列  (未设置 直接 true) 或者 (已设置 并且 展开为 true)
+        return !isShowItem || (isShowItem && this.isExpand)
       }
     },
-    computed: {
-      finallyFormData: {
-        get() {
-          const val = this.value
-          if (!(this.value && Object.keys(this.value).length)) {
-            this.$emit('update:value', val)
-          }
-          return val
-        },
-        set(val) {
-          this.$emit('update:value', val)
-        },
-      },
-      finallyFields() {
-        // 查询 且 展开状态 只显示 3个 否则显示所有
-        const fields = this.fields.filter((field) => !field.hidden)
-        return this.isSearch && !this.isExpanded ? fields.slice(0, 3) : fields
-      },
-      mergedRules() {
-        const formRules = {}
-        this.fields.forEach((field) => {
-          if (field.rules) {
-            formRules[field.prop] = field.rules //this.processRules(field.rules, field)
-          }
-        })
-        return { ...this.rules, ...formRules }
-      },
+    // 返回上一页
+    goBack() {
+      this.$router.push({ name: this.headerConfig.backRouterName })
     },
-    mounted() {},
-    methods: {
-      // 表单验证
-      validate() {
-        return new Promise((resolve, reject) => {
-          this.$refs['form'].validate((valid) => {
-            if (valid) {
-              resolve(true)
-            } else {
-              resolve(false)
-            }
-          })
-        })
-      },
-      // 清除验证
-      clearValidate(field) {
-        this.$refs['form'].clearValidate(field)
-      },
-      // 重置 慎重使用 必须每个都设置 prop 属性，否则执行完方法，手动来进行重置数据
-      resetFields() {
-        this.$refs['form'].resetFields()
-      },
-      // 字段显示
-      showField(index) {
-        if (this.isSearch) {
-          return this.isExpanded || index < 3
-        }
-
-        return true
-      },
-      getFieldColAttrs(field, index) {
-        // 是否响应式
-        const baseAttrs = field.isRwd ? {} : { span: this.getColSpan(field, index) }
-
-        if (field.colAttrs && Object.keys(field.colAttrs).length) {
-          return { ...baseAttrs, ...field.colAttrs }
-        }
-
-        return baseAttrs
-      },
-      // 获取 col span
-      getColSpan(field, index) {
-        if (this.isSearch && index < 3) {
-          return 6 // 当是搜索模式时，前三个字段各占 1/4
-        }
-        return field.colSpan || 6
-      },
-      // 获取 查询按钮 col span
-      getSearchColSpan() {
-        const visibleCount =
-          this.isSearch && !this.isExpanded ? Math.min(3, this.finallyFields.length) : this.finallyFields.length
-
-        // 每行最多 24 个 span, 计算按钮的 span
-        const totalSpan = 24
-        const occupiedSpan = this.finallyFields.slice(0, visibleCount).reduce((total, field) => {
-          return total + (field.colSpan || 6)
-        }, 0)
-
-        // 剩余的 span 分配给按钮列，确保其在右侧显示
-        const remainingSpan = totalSpan - (occupiedSpan % totalSpan)
-
-        return remainingSpan > 0 ? remainingSpan : totalSpan
-      },
-      // 下拉 option 字段
-      getOptionProp(option, optionProps, defaultProp) {
-        if (optionProps && optionProps[defaultProp]) {
-          return option[optionProps[defaultProp]]
-        }
-        return option[defaultProp]
-      },
-      getOptions(options) {
-        return typeof options === 'function' ? options() : options
-      },
-      // 获取组件属性
-      getComponentAttrs(field) {
-        return { ...field.attrs, style: 'width: 100%' }
-      },
-      // 获取组件类型
-      getComponentType(field) {
-        return field.component || `el-${field.type}`
-      },
-      // 获取组件事件
-      getComponentListeners(field, index) {
-        const listeners = {}
-        if (field.on) {
-          Object.keys(field.on).forEach((event) => {
-            listeners[event] = (...args) => {
-              field.on[event](...args, { index, ...field })
-            }
-          })
-        }
-        return listeners
-      },
-      // 获取组件内容
-      getFieldContent(field, index) {
-        if (field.content && this.isFunction(field.content)) {
-          const content = field.content(field, index)
-          return this.createComponent(content)
-        }
-        return this.createComponent(this.finallyFormData[field.prop])
-      },
-      createComponent(content) {
-        if (typeof content === 'string') {
-          if (/<[a-z][\s\S]*>/i.test(content)) {
-            // 包含 HTML 标签
-            return {
-              render: (h) => h('div', { domProps: { innerHTML: content } }),
-            }
-          } else {
-            return {
-              render: (h) => h('span', content),
-            }
-          }
-        } else if (typeof content === 'object' && content.render) {
-          // 如果已经是一个组件对象，直接返回
-          return content
-        } else {
-          return {
-            render(h) {
-              return h('span', content)
-            },
-          }
-        }
-
-        /* content: '测试',
-        content: (field, index) => ({
-              render(h) {
-                return h('div', [h('span', '段落'), h('button', '按钮')])
-              },
-            }),
-        content: (field, index) => `<span>测试</span>` */
-      },
-      // 是否禁用
-      getFieldDisabled(field, index) {
-        if (typeof field.attrs.disabled === 'function') {
-          return field.attrs.disabled({ index, ...field })
-        }
-        return field.attrs.disabled
-      },
-      isFunction(value) {
-        return typeof value === 'function'
-      },
-      processRules(rules, field) {
-        return rules.map((rule) => {
-          return rule
-        })
-      },
-      // 查询
-      handleQuery() {
-        this.$emit('query')
-      },
-      // 重置
-      handleReset() {
-        this.$emit('reset')
-      },
-      // 展开收起
-      toggleExpand() {
-        this.isExpanded = !this.isExpanded
-      },
-    },
-  }
+  },
+}
 </script>
 
 <style lang="scss" scoped>
-  .form-actions {
+.base-form {
+  .page-header {
+    width: 100%;
     display: flex;
-    justify-content: flex-end;
+    justify-items: center;
     align-items: center;
+    :deep(.el-page-header__content) {
+      flex: 1;
+    }
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
   }
+  .form-wrapper {
+    display: flex;
+    flex-flow: row wrap;
+    .search-btn {
+      flex: 1;
+      text-align: right;
+    }
+  }
+}
 </style>

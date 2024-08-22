@@ -71,3 +71,21 @@ export function baseDateFormat(date, cFormat = 'YYYY-MM-DD', isTimestamp = false
     return moment(date).format(cFormat)
   }
 }
+
+/**
+ * @description 是否函数
+ * @param value 值
+ * @returns {boolean}
+ */
+export function isFunction(value) {
+  return typeof value === 'function'
+}
+
+/**
+ * @description 是否不是空对象
+ * @param obj 值
+ * @returns {boolean}
+ */
+export function isNotEmptyObject(obj) {
+  return obj && Object.keys(obj).length
+}
