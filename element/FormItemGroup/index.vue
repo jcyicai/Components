@@ -226,6 +226,9 @@
       },
       // 是否禁用
       getFieldDisabled(field, index) {
+        if (!(field && field.attrs)) {
+          return false
+        }
         if (typeof field.attrs.disabled === 'function') {
           return field.attrs.disabled({ index, ...field })
         }
